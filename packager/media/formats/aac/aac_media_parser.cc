@@ -78,7 +78,8 @@ bool AacMediaParser::ParseInternal() {
 
   mp2t::AdtsHeader adts_header;
   int offset = 0;
-  while (offset + static_cast<int>(adts_header.GetMinFrameSize()) <= data_size) {
+  while (offset + static_cast<int>(adts_header.GetMinFrameSize()) <=
+         data_size) {
     const uint8_t* frame = data + offset;
 
     if (!adts_header.IsSyncWord(frame)) {

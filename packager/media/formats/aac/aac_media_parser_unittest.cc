@@ -74,8 +74,8 @@ class AacMediaParserTest : public testing::Test {
 };
 
 TEST_F(AacMediaParserTest, SingleFrameStreamInfo) {
-  ASSERT_TRUE(parser_->Parse(adts_frame_.data(),
-                             static_cast<int>(adts_frame_.size())));
+  ASSERT_TRUE(
+      parser_->Parse(adts_frame_.data(), static_cast<int>(adts_frame_.size())));
   ASSERT_TRUE(parser_->Flush());
 
   ASSERT_EQ(1u, stream_infos_.size());
@@ -107,7 +107,8 @@ TEST_F(AacMediaParserTest, MultipleFramesTimestamps) {
 
   // First frame starts at 0; second frame is offset by one AAC frame duration
   // of 1024 samples at 44100 Hz in a 90000 timescale.
-  const int64_t kExpectedSecondPts = 1024LL * 90000 / kExpectedSamplingFrequency;
+  const int64_t kExpectedSecondPts =
+      1024LL * 90000 / kExpectedSamplingFrequency;
   EXPECT_EQ(0, samples_[0]->pts());
   EXPECT_EQ(kExpectedSecondPts, samples_[1]->pts());
 }
