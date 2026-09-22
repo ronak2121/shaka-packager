@@ -4,6 +4,8 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+// @steered SNARE-2 2026-09-22
+
 #include <packager/media/formats/aac/aac_media_parser.h>
 
 #include <vector>
@@ -22,9 +24,11 @@ namespace media {
 namespace aac {
 
 namespace {
-// Raw AAC/ADTS carries a single audio track. The timescale matches the one used
-// by the MPEG-2 TS parser so downstream handling is consistent.
-const int32_t kAacTimescale = 90000;
+// Raw AAC/ADTS carries a single audio track. The media timescale is set to the
+// stream's audio sampling frequency so that each fixed-size AAC frame (1024
+// samples) has an exact integer duration and timestamps are computed without
+// rounding. Downstream muxers rescale to their own required timescale (e.g. the
+// MPEG-2 TS muxer to 90000) as needed.
 const uint8_t kAacSampleSizeBits = 16;
 }  // namespace
 
@@ -157,15 +161,15 @@ bool AacMediaParser::EmitStreamInfo(const mp2t::AdtsHeader& adts_header) {
   }
 
   audio_stream_info_ = std::make_shared<AudioStreamInfo>(
-      kAacTrackId, kAacTimescale, kInfiniteDuration, kCodecAAC,
+      kAacTrackId, sampling_frequency, kInfiniteDuration, kCodecAAC,
       AudioStreamInfo::GetCodecString(kCodecAAC, adts_header.GetObjectType()),
       audio_specific_config.data(), audio_specific_config.size(),
       kAacSampleSizeBits, adts_header.GetNumChannels(), sampling_frequency,
       0 /* seek preroll */, 0 /* codec delay */, 0 /* max bitrate */,
       0 /* avg bitrate */, std::string(), false /* is_encrypted */);
 
-  timestamp_helper_ =
-      std::make_unique<AudioTimestampHelper>(kAacTimescale, sampling_frequency);
+  timestamp_helper_ = std::make_unique<AudioTimestampHelper>(sampling_frequency,
+                                                             sampling_frequency);
   timestamp_helper_->SetBaseTimestamp(0);
 
   std::vector<std::shared_ptr<StreamInfo>> stream_infos;

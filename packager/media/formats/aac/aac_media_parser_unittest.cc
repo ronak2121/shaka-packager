@@ -4,6 +4,8 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+// @steered SNARE-2 2026-09-22
+
 #include <packager/media/formats/aac/aac_media_parser.h>
 
 #include <memory>
@@ -106,9 +108,9 @@ TEST_F(AacMediaParserTest, MultipleFramesTimestamps) {
   ASSERT_EQ(2u, samples_.size());
 
   // First frame starts at 0; second frame is offset by one AAC frame duration
-  // of 1024 samples at 44100 Hz in a 90000 timescale.
-  const int64_t kExpectedSecondPts =
-      1024LL * 90000 / kExpectedSamplingFrequency;
+  // of 1024 samples. The media timescale equals the sampling frequency, so this
+  // is exactly 1024 ticks with no rounding.
+  const int64_t kExpectedSecondPts = 1024;
   EXPECT_EQ(0, samples_[0]->pts());
   EXPECT_EQ(kExpectedSecondPts, samples_[1]->pts());
 }
