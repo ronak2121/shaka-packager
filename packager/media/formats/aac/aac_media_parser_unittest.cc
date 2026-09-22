@@ -128,6 +128,27 @@ TEST_F(AacMediaParserTest, ResyncsPastLeadingGarbage) {
   ASSERT_EQ(1u, samples_.size());
 }
 
+TEST_F(AacMediaParserTest, RejectsFalsePositiveSyncwordBeforeValidFrame) {
+  // A false-positive ADTS syncword (0xFFF...) whose frame_size field points
+  // into garbage that is NOT followed by a real syncword. The parser must not
+  // emit a sample for it; it should resync to the genuine frame that follows.
+  //
+  // Bytes: syncword 0xFFF1, then a header claiming a small frame_size (8), then
+  // filler that does not begin with a syncword at the claimed frame end.
+  std::vector<uint8_t> fake = {0xff, 0xf1, 0x00, 0x00, 0x01, 0x1f,
+                               0x00, 0x00, 0x11, 0x22, 0x33, 0x44};
+  std::vector<uint8_t> stream(fake);
+  stream.insert(stream.end(), adts_frame_.begin(), adts_frame_.end());
+
+  ASSERT_TRUE(parser_->Parse(stream.data(), static_cast<int>(stream.size())));
+  ASSERT_TRUE(parser_->Flush());
+
+  // Only the single genuine frame should be emitted.
+  ASSERT_EQ(1u, stream_infos_.size());
+  ASSERT_EQ(1u, samples_.size());
+  EXPECT_EQ(adts_frame_.size() - 7, samples_[0]->data_size());
+}
+
 TEST_F(AacMediaParserTest, HandlesSplitFrameAcrossParseCalls) {
   const int split = static_cast<int>(adts_frame_.size()) / 2;
   ASSERT_TRUE(parser_->Parse(adts_frame_.data(), split));

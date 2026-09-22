@@ -82,12 +82,18 @@ bool AacMediaParser::ParseInternal() {
 
   mp2t::AdtsHeader adts_header;
   int offset = 0;
+  // Offset at which the current run of skipped (non-frame) bytes began, or -1
+  // when we are aligned to a frame. Used to emit a single warning per
+  // contiguous run of discarded bytes rather than one per byte.
+  int skip_run_start = -1;
   while (offset + static_cast<int>(adts_header.GetMinFrameSize()) <=
          data_size) {
     const uint8_t* frame = data + offset;
 
     if (!adts_header.IsSyncWord(frame)) {
       // Not aligned to a frame boundary; advance one byte and resync.
+      if (skip_run_start < 0)
+        skip_run_start = offset;
       ++offset;
       continue;
     }
@@ -98,6 +104,8 @@ bool AacMediaParser::ParseInternal() {
     if (frame_size < adts_header.GetMinFrameSize()) {
       // A syncword with an implausibly small frame size: likely a false
       // positive, skip this byte and continue searching.
+      if (skip_run_start < 0)
+        skip_run_start = offset;
       ++offset;
       continue;
     }
@@ -107,9 +115,36 @@ bool AacMediaParser::ParseInternal() {
     }
 
     if (!adts_header.Parse(frame, frame_size)) {
-      // Malformed header: skip a byte and try to resync.
+      // Malformed header: this candidate syncword did not parse as a valid
+      // ADTS header, so skip a byte and keep searching.
+      if (skip_run_start < 0)
+        skip_run_start = offset;
       ++offset;
       continue;
+    }
+
+    // Corroborate the frame boundary. A genuine ADTS frame is immediately
+    // followed by another syncword. If the next syncword is fully buffered but
+    // absent, this candidate was a false positive (a random 0xFFF pattern in
+    // the payload that happened to parse); skip a byte and keep searching
+    // rather than emitting a corrupt sample.
+    const int kSyncWordSize = 2;
+    if (remaining >= frame_size + kSyncWordSize &&
+        !adts_header.IsSyncWord(frame + frame_size)) {
+      if (skip_run_start < 0)
+        skip_run_start = offset;
+      ++offset;
+      continue;
+    }
+
+    // We have a confirmed frame. If we skipped bytes to get here, warn once for
+    // the whole run so a corrupt or misaligned stream is visible without
+    // flooding the logs.
+    if (skip_run_start >= 0) {
+      LOG(WARNING) << "Skipped " << (offset - skip_run_start)
+                   << " byte(s) resynchronizing to an ADTS frame at offset "
+                   << offset << ".";
+      skip_run_start = -1;
     }
 
     // Publish the stream info from the first valid frame.
