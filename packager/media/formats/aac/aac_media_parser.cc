@@ -203,8 +203,8 @@ bool AacMediaParser::EmitStreamInfo(const mp2t::AdtsHeader& adts_header) {
       0 /* seek preroll */, 0 /* codec delay */, 0 /* max bitrate */,
       0 /* avg bitrate */, std::string(), false /* is_encrypted */);
 
-  timestamp_helper_ = std::make_unique<AudioTimestampHelper>(sampling_frequency,
-                                                             sampling_frequency);
+  timestamp_helper_ = std::make_unique<AudioTimestampHelper>(
+      sampling_frequency, sampling_frequency);
   timestamp_helper_->SetBaseTimestamp(0);
 
   std::vector<std::shared_ptr<StreamInfo>> stream_infos;
